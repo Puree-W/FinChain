@@ -1,30 +1,7 @@
 import axios from "axios";
 
-// ─── Base API Templates ───
 
-async function apiGet(endpoint, params = {}) {
-    try {
-        const response = await axios.get(endpoint, { params });
-        return response.data;
-    } catch (err) {
-        console.error(`GET ${endpoint} failed:`, err);
-        throw err;
-    }
-}
-
-async function apiPost(endpoint, body = {}, params = {}) {
-    try {
-        const response = await axios.post(endpoint, body, { params });
-        return response.data;
-    } catch (err) {
-        console.error(`POST ${endpoint} failed:`, err);
-        throw err;
-    }
-}
-
-// ─── Streaming POST (for SSE / chunked response) ───
-
-async function apiPostStream(endpoint, body = {}, { params = {}, onChunk, signal } = {}) {
+export async function apiPostStream(endpoint, body = {}, { params = {}, onChunk, signal } = {}) {
     const query = new URLSearchParams(params).toString();
     const url = query ? `${endpoint}?${query}` : endpoint;
 
@@ -53,16 +30,13 @@ async function apiPostStream(endpoint, body = {}, { params = {}, onChunk, signal
     }
 }
 
-// ─── Feature Functions ───
-
-async function getHistory(topicId) {
+export async function getHistory(topicId) {
     return await apiGet("/api/Chat/GetHistory", { topicId });
 }
-async function getAllHistory() {
+export async function getAllHistory() {
     return await apiGet("/api/Chat/GetAllHistory");
 }
-
-async function callThaiLLM(input, model, topicId, { onChunk, signal } = {}) {
+export async function callThaiLLM(input, model, topicId, { onChunk, signal } = {}) {
     await apiPostStream("/api/Chat/ChatPost", {
         stream: true,
         messages: [{ role: 'user', content: input }],
@@ -76,4 +50,50 @@ async function callThaiLLM(input, model, topicId, { onChunk, signal } = {}) {
     });
 }
 
-export { callThaiLLM, getHistory, getAllHistory };
+export async function renameTopicHistory(topicId, newName) {
+    return await apiPut("/api/Chat/UpdateTopicName", { id: topicId, topicName: newName });
+}
+export async function DeleteTopicHistory(topicId) {
+ return await apiDelete("/api/Chat/DeleteTopic", { topicId });
+}
+// ─── Base API Templates ───
+
+export async function apiGet(endpoint, params = {}) {
+    try {
+        const response = await axios.get(endpoint, { params });
+        return response.data;
+    } catch (err) {
+        console.error(`GET ${endpoint} failed:`, err);
+        throw err;
+    }
+}
+
+export async function apiPost(endpoint, body = {}, params = {}) {
+    try {
+        const response = await axios.post(endpoint, body, { params });
+        return response.data;
+    } catch (err) {
+        console.error(`POST ${endpoint} failed:`, err);
+        throw err;
+    }
+}
+
+export async function apiPut(endpoint, body = {}, params = {}) {
+    try {
+        const response = await axios.put(endpoint, body, { params });
+        return response.data;
+    } catch (err) {
+        console.error(`PUT ${endpoint} failed:`, err);
+        throw err;
+    }
+}
+
+export async function apiDelete(endpoint, body = {}, params = {}) {
+    try {
+        const response = await axios.delete(endpoint, body, { params });
+        return response.data;
+    } catch (err) {
+        console.error(`POST ${endpoint} failed:`, err);
+        throw err;
+    }
+}

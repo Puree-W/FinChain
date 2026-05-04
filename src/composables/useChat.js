@@ -3,6 +3,9 @@ import { callThaiLLM } from '../api/call.js'
 
 const messages = ref([])
 const isLoading = ref(false)
+const isStreamDone = ref(false)
+const isAtBottom = ref(true)
+const scrollAreaRef = ref(null)
 const topicId = ref(null)
 
 export function useChat() {
@@ -11,22 +14,29 @@ export function useChat() {
 
     // 1) Add user message
     messages.value.push({
-      role: 'U',
+      role: 'user',
       content: text,
     })
 
     // 2) Add empty bot message (will stream into it)
     const botMsg = reactive({
-      role: 'B',
+      role: 'assistant',
       content: '',
     })
     messages.value.push(botMsg)
 
     // 3) Call the API with streaming
     isLoading.value = true
+    isStreamDone.value = false
     try {
       await callThaiLLM(text, model, topicId, {
         onChunk(chunk) {
+          if (chunk.includes('[DONE]')) {
+            isStreamDone.value = true
+            const cleaned = chunk.replace('[DONE]', '')
+            if (cleaned) botMsg.content += cleaned
+            return
+          }
           botMsg.content += chunk
         },
       })
@@ -42,6 +52,11 @@ export function useChat() {
     topicId.value = newTopicId
   }
 
-  return { messages, isLoading, topicId, sendMessage, loadHistory }
+  function scrollToBottom() {
+    const el = scrollAreaRef.value
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+  }
+
+  return { messages, isLoading, isStreamDone, isAtBottom, scrollAreaRef, topicId, sendMessage, loadHistory, scrollToBottom }
 
 }

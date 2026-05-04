@@ -25,7 +25,6 @@ namespace FinChain.Repository
                 .Single();
             return response;
         }
-
         public async Task<T> InsertAsync(T entity)
         {
             var response = await _supabase.From<T>().Insert(entity);

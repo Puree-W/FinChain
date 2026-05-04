@@ -1,12 +1,13 @@
 <template>
     <div class="layout">
-        <Navbar :historyList="historyList" />
+        <Navbar :historyList="historyList" @new-chat="loadHistory([], null)" />
         <div class="page">
-            <div class="scroll-area">
+            <div class="scroll-area" ref="scrollArea" @scroll="onScroll">
                 <div class="content-column">
                     <HistoryConversation/>
                 </div>
             </div>
+
             <div class="chat-area">
                 <div class="content-column">
                     <Chatbox />
@@ -22,12 +23,24 @@ import Chatbox from '../components/chat/Chatbox.vue'
 import HistoryConversation from '../components/chat/HistoryConversation.vue'
 import Navbar from '../components/Navbar.vue'
 import { getAllHistory } from '../api/call.js'
+import { useChat } from '../composables/useChat.js'
 
+const { loadHistory, isAtBottom, scrollAreaRef } = useChat()
+const scrollArea = ref(null)
 const historyList = ref([])
 
+function onScroll() {
+    const el = scrollArea.value
+    if (!el) return
+    const threshold = 50
+    isAtBottom.value = el.scrollTop + el.clientHeight >= el.scrollHeight - threshold
+}
+
 onMounted(() => {
-    getAllHistory().then(data => {
-        historyList.value = data;
+    scrollAreaRef.value = scrollArea.value
+
+    getAllHistory().then(response => {
+        historyList.value = response.data;
     }).catch(err => {
         console.error("Failed to get history:", err);
     });
@@ -94,4 +107,5 @@ onMounted(() => {
     margin: 20px auto 0;
     padding-bottom: 160px;
 }
+
 </style>

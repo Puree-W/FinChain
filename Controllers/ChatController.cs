@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using FinChain.Function;
 using FinChain.Model;
+using System.Net;
 namespace FinChain.Controllers
 {
     [ApiController]
@@ -14,9 +15,9 @@ namespace FinChain.Controllers
             _chatProcessor = chatProcessor;
         }
         [HttpPost("ChatPost")]
-        public async Task ChatPost([FromBody] ThaiLLMRequestModel req, [FromQuery] string model,CancellationToken cancellationToken)
+        public async Task ChatPost([FromBody] ThaiLLMRequestModel req, [FromQuery] string model, CancellationToken cancellationToken)
         {
-            try 
+            try
             {
                 Response.ContentType = "text/event-stream";
 
@@ -34,12 +35,18 @@ namespace FinChain.Controllers
             }
         }
         [HttpGet("GetHistory")]
-        public async Task<ActionResult<HistoryLLMModel>> GetHistory([FromQuery] string topicId)
+        public async Task<IActionResult> GetHistory([FromQuery] string topicId)
         {
-            try 
+            try
             {
                 var result = await _chatProcessor.GetHistoryMessage(topicId);
-                return Ok(result);
+                return Ok(new ApiReturnModel<HistoryLLMModel>
+                {
+                    Success = true,
+                    StatusCode = HttpStatusCode.OK,
+                    Message = "Success",
+                    Data = result
+                });
             }
             catch (Exception ex)
             {
@@ -47,17 +54,60 @@ namespace FinChain.Controllers
             }
         }
         [HttpGet("GetAllHistory")]
-        public async Task<ActionResult<HistoryLLMModel>> GetAllHistory()
+        public async Task<IActionResult> GetAllHistory()
         {
             try
             {
                 var result = await _chatProcessor.GetAllHistoryMessage();
-                return Ok(result);
+                return Ok(new ApiReturnModel<TopicMessage[]>
+                {
+                    Success = true,
+                    StatusCode = HttpStatusCode.OK,
+                    Message = "Success",
+                    Data = result
+                });
             }
             catch (Exception ex)
             {
                 return BadRequest(new { error = ex.Message });
             }
         }
+        [HttpPut("UpdateTopicName")]
+        public async Task<IActionResult> UpdateTopicName(TopicMessage topicMessage)
+        {
+            try
+            {
+                await _chatProcessor.UpdateTopicName(topicMessage.Id, topicMessage.TopicName);
+                return Ok(new ApiReturnModel<bool>
+                { 
+                    Success = true,
+                    StatusCode = HttpStatusCode.OK,
+                    Message = "Success",
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+        [HttpDelete("DeleteTopic")]
+        public async Task<IActionResult> DeleteTopic(string topicId)
+        {
+            try
+            {   
+                await _chatProcessor.DeleteTopic(topicId);
+                return Ok(new ApiReturnModel<bool>
+                {
+                    Success = true,
+                    StatusCode = HttpStatusCode.OK,
+                    Message = "Success",
+                });
+            }
+            catch(Exception ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+        
     }
 }

@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using FinChain.Model;
+using FinChain.Model.PostgreSQL;
 using FinChain.Repository;
 
 namespace FinChain.Function
@@ -13,7 +14,9 @@ namespace FinChain.Function
         Task<HistoryLLMModel> GetHistoryMessage(string topicId);
         Task<TopicMessage[]> GetAllHistoryMessage();
         Task<string> TopicLogMessageSave(string message);
-        Task LogMessageSave(string content, string role ,string topicId, int order, int promptToken = 0, int completionToken = 0, int totalToken = 0);
+        Task LogMessageSave(string content, string role ,string topicId, int order, int promptToken = 0, int completionToken = 0, int totalToken = 0); 
+        Task<bool> UpdateTopicName(string topicId, string name);
+        Task<bool> DeleteTopic(string topicId);
     }
     public class ChatProcessor : IChatProcessor
     {
@@ -38,7 +41,7 @@ namespace FinChain.Function
             {
                 topicId = await TopicLogMessageSave(req.Messages[0].Content);
             }
-            else 
+            else
             {
                 topicId = req.topicId;
             }
@@ -102,15 +105,17 @@ namespace FinChain.Function
                 }
             }
 
+            // Signal frontend that content streaming is complete
+            yield return "[DONE]";
+
             if (fullResponse.Length > 0)
             {
-
                 var userMessageOrder = req.Messages.Length;
                 var botMessageOrder = userMessageOrder + 1;
 
                 await Task.WhenAll(
-                    LogMessageSave(req.Messages.Last().Content, "U", topicId, userMessageOrder),
-                    LogMessageSave(fullResponse.ToString(), "B", topicId, botMessageOrder, promptTokens, completionTokens, totalTokens)
+                    LogMessageSave(req.Messages.Last().Content, "user", topicId, userMessageOrder),
+                    LogMessageSave(fullResponse.ToString(), "assistant", topicId, botMessageOrder, promptTokens, completionTokens, totalTokens)
                 );
             }
         }
@@ -154,7 +159,7 @@ namespace FinChain.Function
                     return new HistoryLLMModel();
                 }
             }
-            catch (Exception ex) 
+            catch (Exception ex)
             {
                 throw new Exception($"Error retrieving history messages for topicId {topicId}: {ex.Message}", ex);
             }
@@ -187,6 +192,41 @@ namespace FinChain.Function
                 total_tokens = totalToken
             });
         }
-
+        public async Task<bool> UpdateTopicName(string topicId, string name)
+        {
+            try
+            {
+                topic_message topic = await _topicMessageRepository.GetByIdAsync(topicId);
+                topic.topic_name = name;
+                await _topicMessageRepository.UpdateAsync(topic);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Error updating topic name for topicId {topicId}: {ex.Message}", ex);
+            }
+        }
+        public async Task<bool> DeleteTopic(string topicId)
+        {
+            try
+            {
+                topic_message topic = await _topicMessageRepository.GetByIdAsync(topicId);
+                topic.is_active = false;
+                await _logMessageRepository.GetAllAsync().ContinueWith(t =>
+                {
+                    var logsToDelete = t.Result.Where(l => l.topic_id == topicId).ToList();
+                    foreach (var log in logsToDelete)
+                    {
+                        log.is_active = false;
+                        _logMessageRepository.UpdateAsync(log);
+                    }
+                });
+                return true;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Error deleting topic for topicId {topicId}: {ex.Message}", ex);
+            }
+        }
     }
 }

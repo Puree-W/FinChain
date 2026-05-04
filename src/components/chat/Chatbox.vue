@@ -1,5 +1,11 @@
 <template>
+  <Transition name="fade">
+    <v-btn v-show="!isAtBottom" class="circle" :ripple="false" @click="scrollToBottom">
+        <v-icon size="20" class="circle-icon">mdi-arrow-down</v-icon>
+    </v-btn>
+  </Transition>
   <div class="chatbox">
+  
     <div class="input-area">
       <textarea
         ref="textareaRef"
@@ -62,7 +68,7 @@
 import { ref, nextTick } from 'vue'
 import { useChat } from '../../composables/useChat.js'
 
-const { sendMessage: send, topicId} = useChat()
+const { sendMessage: send, topicId, isAtBottom, scrollToBottom } = useChat()
 const message = ref('')
 const textareaRef = ref(null)
 const showModelMenu = ref(false)
@@ -118,6 +124,27 @@ function sendMessage(e) {
 </script>
 
 <style scoped>
+
+.circle{
+  width: 26px !important;
+  height: 26px !important;
+  min-width: 26px !important;
+  padding: 0 !important;
+  background-color: white !important;
+  border-radius: 50% !important;
+  z-index: 3;
+  display: flex;
+  position: absolute;
+  top: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  outline: none !important;
+}
+
+.circle-icon {
+  color: #000000;
+}
+
 .chatbox {
   background-color: #303030;
   border-radius: 20px;
@@ -184,6 +211,26 @@ function sendMessage(e) {
 .tool-btn :deep(.v-btn__underlay) {
   display: none;
 }
+
+.circle:hover {
+  color: white !important;
+}
+
+.circle :deep(.v-btn__overlay),
+.circle :deep(.v-btn__underlay) {
+  display: none;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
 
 
 .tool-label {
