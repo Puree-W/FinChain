@@ -1,10 +1,4 @@
 <template>
-    <v-dialog :model-value="isApiLoading" persistent width="auto">
-        <v-card class="progress-card" color="#333333" rounded="lg" elevation="0">
-            <v-progress-circular indeterminate color="white" size="64" />
-        </v-card>
-    </v-dialog>
-        
     <div class="navbar-container" :class="{ expanded: isExpanded }">
         <v-btn icon variant="text" :ripple="false" class="menu-btn" size="small" @click="isExpanded = !isExpanded">
             <v-icon size="24">mdi-menu</v-icon>
@@ -19,32 +13,42 @@
 
                 <div class="chat-history">
                     <p class="chat-history-label">History</p>
-                    <div v-for="item in historyList" :key="item.id" class="chat-history-item" :class="{ active: selectedTopicId === item.id }" @click="selectTopic(item.id)">
-                        <span class="history-item-name">{{ truncatedHistoryName(item.topicName) }}</span>
-                        <Transition name="fade">
-                            <div v-if="selectedTopicId === item.id" class="history-item-menu-wrapper">
-                                <v-menu class="history-item-menu" offset-y>
-                                    <template v-slot:activator="{ props }">
-                                        <v-btn icon="mdi-dots-horizontal" v-bind="props" :ripple="false"
-                                        class="history-item-menu-icon"></v-btn>
-                                    </template>
-                                    <v-list class="history-item-menu-list">
-                                        <v-list-item v-for="(menuItem, i) in items" :key="i" class="history-item-menu-sublist" :ripple="false" @click="menuItem.action(item.id)">
-                                        <v-list-item-title>{{ menuItem.title }}</v-list-item-title>
-                                        </v-list-item>
-                                    </v-list>
-                                </v-menu>
+
+                    <Transition name="fade" mode="out-in">
+                        <div v-if="loadingHistory" key="loading" class="history-skeleton-list">
+                            <div v-for="i in 5" :key="i" class="history-skeleton-item">
+                                <div class="history-skeleton-bar" :style="{ width: skeletonWidth(i) }"></div>
                             </div>
-                        </Transition>
-                    </div>
-                    
+                        </div>
+
+                        <TransitionGroup v-else key="loaded" name="history-fade" tag="div" class="history-list">
+                            <div v-for="item in historyList" :key="item.id" class="chat-history-item" :class="{ active: activeTopicId === item.id }" @click="selectTopic(item.id)">
+                                <span class="history-item-name">{{ truncatedHistoryName(item.topicName) }}</span>
+                                <Transition name="fade">
+                                    <div v-if="activeTopicId === item.id" class="history-item-menu-wrapper">
+                                        <v-menu class="history-item-menu" offset-y>
+                                            <template v-slot:activator="{ props }">
+                                                <v-btn icon="mdi-dots-horizontal" v-bind="props" :ripple="false"
+                                                class="history-item-menu-icon"></v-btn>
+                                            </template>
+                                            <v-list class="history-item-menu-list">
+                                                <v-list-item v-for="(menuItem, i) in items" :key="i" class="history-item-menu-sublist" :ripple="false" @click="menuItem.action(item.id)">
+                                                <v-list-item-title>{{ menuItem.title }}</v-list-item-title>
+                                                </v-list-item>
+                                            </v-list>
+                                        </v-menu>
+                                    </div>
+                                </Transition>
+                            </div>
+                        </TransitionGroup>
+                    </Transition>
                 </div>
             </div>
         </Transition>
 
-        <!-- Box -->
-        <v-dialog max-width="500" v-model="renameBox">
-            <v-card title="Rename topic" class="rename-dialog" theme="dark">
+        <!-- Rename dialog -->
+        <v-dialog max-width="500" v-model="renameBox" :persistent="renameLoading">
+            <v-card title="Rename topic" class="action-dialog" theme="dark">
                 <v-card-text style="margin-bottom: -2rem;">
                     <v-text-field
                         class="rename-input"
@@ -54,6 +58,7 @@
                         :rules="rules"
                         density="comfortable"
                         placeholder="Enter new name"
+                        :disabled="renameLoading"
                         v-model="newName"
                     ></v-text-field>
                 </v-card-text>
@@ -61,12 +66,19 @@
                     <v-spacer></v-spacer>
                     <v-btn
                         class="confirm-btn"
-                        @click="renameBox = false; renameTopicAction(renameTopicId, newName);"
-                        text="Confirm"
+                        :loading="renameLoading"
+                        :disabled="!newName || renameLoading"
+                        @click="renameTopicAction(renameTopicId, newName)"
                         :ripple="false"
-                    ></v-btn>
+                    >
+                        <template v-slot:loader>
+                            <v-progress-circular indeterminate color="white" size="20" width="2" />
+                        </template>
+                        Confirm
+                    </v-btn>
                     <v-btn
-                        @click="renameBox = false;"
+                        :disabled="renameLoading"
+                        @click="renameBox = false"
                         class="cancel-btn"
                         text="Cancel"
                         :ripple="false"
@@ -74,23 +86,58 @@
                 </v-card-actions>
             </v-card>
         </v-dialog>
-        
-        <v-dialog max-width="500" v-model="deleteBox">
-            <v-card title="Delete history confirmation">
+
+        <!-- Delete dialog -->
+        <v-dialog max-width="500" v-model="deleteBox" :persistent="deleteLoading">
+            <v-card title="Delete history confirmation" class="action-dialog" theme="dark">
                 <v-card-text>Are you sure you want to delete this history? This action cannot be undone.</v-card-text>
                 <v-card-actions>
                     <v-spacer></v-spacer>
                     <v-btn
-                        @click="deleteBox = false"
                         class="confirm-btn"
-                        text="Confirm"
+                        :loading="deleteLoading"
+                        :disabled="deleteLoading"
+                        @click="deleteTopicAction(deleteTopicId)"
                         :ripple="false"
-                    ></v-btn>
+                    >
+                        <template v-slot:loader>
+                            <v-progress-circular indeterminate color="white" size="20" width="2" />
+                        </template>
+                        Confirm
+                    </v-btn>
                     <v-btn
-                        @click="deleteBox = false;"
+                        :disabled="deleteLoading"
+                        @click="deleteBox = false"
                         class="cancel-btn"
                         text="Cancel"
                         :ripple="false"
+                    ></v-btn>
+                </v-card-actions>
+            </v-card>
+        </v-dialog>
+
+        <!-- Result dialog (success / error) -->
+        <v-dialog max-width="420" v-model="resultBox">
+            <v-card class="action-dialog result-card" theme="dark">
+                <div class="result-body">
+                    <v-icon
+                        :color="resultStatus === 'success' ? '#646cff' : '#ff5252'"
+                        size="48"
+                    >
+                        {{ resultStatus === 'success' ? 'mdi-check-circle-outline' : 'mdi-alert-circle-outline' }}
+                    </v-icon>
+                    <div class="result-text">
+                        <p class="result-title">{{ resultStatus === 'success' ? 'Complete' : 'Error' }}</p>
+                        <p class="result-message">{{ resultMessage }}</p>
+                    </div>
+                </div>
+                <v-card-actions>
+                    <v-spacer></v-spacer>
+                    <v-btn
+                        class="confirm-btn"
+                        text="OK"
+                        :ripple="false"
+                        @click="resultBox = false"
                     ></v-btn>
                 </v-card-actions>
             </v-card>
@@ -104,53 +151,80 @@ import { ref } from 'vue'
 import { getHistory, renameTopicHistory, DeleteTopicHistory } from '../api/call.js'
 import { useChat } from '../composables/useChat.js'
 
-const { loadHistory } = useChat()
-const renameBox = ref(null)
-const deleteBox = ref(null)
-const isApiLoading = ref(false)
+const { loadHistory, topicId: activeTopicId } = useChat()
+
+const renameBox = ref(false)
+const deleteBox = ref(false)
+const resultBox = ref(false)
+
+const renameLoading = ref(false)
+const deleteLoading = ref(false)
+
 const newName = ref(null)
 const renameTopicId = ref(null)
+const deleteTopicId = ref(null)
+
+const resultStatus = ref('success') // 'success' | 'error'
+const resultMessage = ref('')
 
 const rules = [
     value => !!value || 'Required.',
 ]
 
-function renameTopic(topicId) {
-    renameTopicId.value = topicId;
-    renameBox.value = true;
+function showResult(status, message) {
+    resultStatus.value = status
+    resultMessage.value = message
+    resultBox.value = true
 }
 
-function renameTopicAction(topicId, newName) {
-    isApiLoading.value = true;
-    renameTopicHistory(topicId, newName).then(response => {
+function renameTopic(topicId) {
+    renameTopicId.value = topicId
+    newName.value = null
+    renameBox.value = true
+}
+
+function renameTopicAction(topicId, name) {
+    if (!name) return
+    renameLoading.value = true
+    renameTopicHistory(topicId, name).then(response => {
         if (response.success) {
-            console.log("rename topic success:", response.message);
+            renameBox.value = false
+            emit('refresh-history')
+            showResult('success', 'Topic renamed successfully.')
         } else {
-            console.error("Failed to rename topic:", response.message);
+            showResult('error', response.message || 'Failed to rename topic.')
         }
     }).catch(err => {
-        console.error("Failed to rename topic:", err);
+        showResult('error', err?.message || 'Failed to rename topic.')
     }).finally(() => {
-        isApiLoading.value = false;
-        newName.value = null;
-    });
+        renameLoading.value = false
+        newName.value = null
+    })
 }
 
-const deleteTopic = (topicId) => {
-    deleteBox.value = true;
-    selectedTopicId.value = topicId;
-    // isApiLoading.value = true;
-    // DeleteTopicHistory.then(response => {
-    //     if (response.success) {
-    //         console.log("Topic deleted successfully");
-    //     } else {
-    //         console.error("Failed to delete topic:", response.message);
-    //     }
-    // }).catch(err => {
-    //     console.error("Failed to delete topic:", err);
-    // }).finally(() => {
-    //     isApiLoading.value = false;
-    // });
+function deleteTopic(topicId) {
+    deleteTopicId.value = topicId
+    deleteBox.value = true
+}
+
+function deleteTopicAction(topicId) {
+    deleteLoading.value = true
+    DeleteTopicHistory(topicId).then(response => {
+        if (response.success) {
+            deleteBox.value = false
+            if (activeTopicId.value === topicId) {
+                loadHistory([], null)
+            }
+            emit('refresh-history')
+            showResult('success', 'Topic deleted successfully.')
+        } else {
+            showResult('error', response.message || 'Failed to delete topic.')
+        }
+    }).catch(err => {
+        showResult('error', err?.message || 'Failed to delete topic.')
+    }).finally(() => {
+        deleteLoading.value = false
+    })
 }
 
 
@@ -162,33 +236,38 @@ const props = defineProps({
     historyList: {
         type: Array,
         default: () => []
-    }
+    },
+    loadingHistory: {
+        type: Boolean,
+        default: false,
+    },
 })
 
-const emit = defineEmits(['newChat'])
+// Varied widths give skeleton rows the feel of real titles rather than a uniform block.
+const SKELETON_WIDTHS = ['85%', '60%', '75%', '90%', '55%']
+function skeletonWidth(i) {
+    return SKELETON_WIDTHS[(i - 1) % SKELETON_WIDTHS.length]
+}
+
+const emit = defineEmits(['newChat', 'refresh-history'])
 
 function truncatedHistoryName(topicName) {
-    // Logic to create a new chat
-    return topicName.length > 25 ? topicName.slice(0, 25) + '...' : topicName;
+    return topicName.length > 25 ? topicName.slice(0, 25) + '...' : topicName
 }
 
 function createNewChat() {
-    selectedTopicId.value = null;
-    emit('newChat');
-    console.log("Creating new chat...");
+    emit('newChat')
 }
 
 function selectTopic(topicId) {
-    selectedTopicId.value = topicId;
     getHistory(topicId).then(response => {
-        loadHistory(response.data.messages || [], topicId);
+        loadHistory(response.data.messages || [], topicId)
     }).catch(err => {
-        console.error("Failed to get history:", err);
-    });
+        console.error("Failed to get history:", err)
+    })
 }
 
 const isExpanded = ref(false)
-const selectedTopicId = ref(null)
 </script>
 
 <style scoped>
@@ -349,12 +428,13 @@ const selectedTopicId = ref(null)
   display: none;
 }
 
-.rename-dialog {
+/* Shared dialog skin (rename / delete / result) */
+.action-dialog {
     background-color: #333333;
     color: #bdbdbd;
     padding: 8px;
 }
-.rename-dialog :deep(.v-messages__message) {
+.action-dialog :deep(.v-messages__message) {
     color: #ff8a80;
 }
 
@@ -406,6 +486,32 @@ const selectedTopicId = ref(null)
     display: none;
 }
 
+/* Result dialog */
+.result-card {
+    padding: 20px;
+}
+.result-body {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 8px 16px 8px;
+}
+.result-text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.result-title {
+    font-size: 18px;
+    font-weight: 500;
+    color: #e6e6e6;
+    margin: 0;
+}
+.result-message {
+    font-size: 14px;
+    color: #bdbdbd;
+    margin: 0;
+}
 
 .fade-enter-active,
 .fade-leave-active {
@@ -416,8 +522,59 @@ const selectedTopicId = ref(null)
 .fade-leave-to {
     opacity: 0;
 }
-.progress-card {
-    padding: 24px;  
 
+/* History list reveal: items fade in one-by-one and fade out on remove */
+.history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.history-fade-enter-active {
+    transition: opacity 0.35s ease, transform 0.35s ease;
+}
+.history-fade-leave-active {
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    position: absolute;
+}
+.history-fade-enter-from {
+    opacity: 0;
+    transform: translateY(-4px);
+}
+.history-fade-leave-to {
+    opacity: 0;
+    transform: translateY(-4px);
+}
+
+/* Skeleton placeholders shown while history is loading */
+.history-skeleton-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px 0;
+}
+.history-skeleton-item {
+    height: 20px;
+    display: flex;
+    align-items: center;
+}
+.history-skeleton-bar {
+    height: 12px;
+    border-radius: 6px;
+    background: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0.05) 0%,
+        rgba(255, 255, 255, 0.14) 50%,
+        rgba(255, 255, 255, 0.05) 100%
+    );
+    background-size: 200% 100%;
+    animation: history-skeleton-shimmer 1.2s ease-in-out infinite;
+}
+@keyframes history-skeleton-shimmer {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
 }
 </style>

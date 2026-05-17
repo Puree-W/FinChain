@@ -19,9 +19,14 @@ namespace FinChain.Controllers
         {
             try
             {
+                // Resolve / create topic before headers are flushed so we can hand the id
+                // back to the client via X-Topic-Id for subsequent multi-turn requests.
+                var topicId = await _chatProcessor.EnsureTopicAsync(req);
+                Response.Headers["X-Topic-Id"] = topicId;
+                Response.Headers["Access-Control-Expose-Headers"] = "X-Topic-Id";
                 Response.ContentType = "text/event-stream";
 
-                await foreach (var chunk in _chatProcessor.StreamChatMessageAsync(req, model, cancellationToken))
+                await foreach (var chunk in _chatProcessor.StreamChatMessageAsync(req, model, topicId, cancellationToken))
                 {
                     await Response.WriteAsync(chunk, cancellationToken);
                     await Response.Body.FlushAsync(cancellationToken);

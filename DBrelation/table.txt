@@ -1,0 +1,46 @@
+---Postgresql script---
+
+CREATE TABLE public.ai_config (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  name character varying,
+  endpoint character varying,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone,
+  active_flag boolean DEFAULT true,
+  CONSTRAINT ai_config_pkey PRIMARY KEY (id)
+);
+
+CREATE TABLE public.embedding_config (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  name character varying,
+  endpoint character varying,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone,
+  active_flag boolean DEFAULT true,
+  CONSTRAINT embedding_config_pkey PRIMARY KEY (id)
+);
+
+CREATE TABLE public.log_message (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  content character varying,
+  role character varying NOT NULL,
+  created_at timestamp without time zone DEFAULT now(),
+  updated_at timestamp without time zone DEFAULT now(),
+  is_active boolean NOT NULL,
+  topic_id uuid NOT NULL DEFAULT auth.uid(),
+  order bigint,
+  prompt_tokens bigint,
+  total_tokens bigint,
+  completion_tokens bigint,
+  CONSTRAINT log_message_pkey PRIMARY KEY (id),
+  CONSTRAINT Message_topic_id_fkey FOREIGN KEY (topic_id) REFERENCES public.topic_message(id)
+);
+
+CREATE TABLE public.topic_message (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  topic_name text,
+  created_at timestamp without time zone DEFAULT now(),
+  updated_at timestamp without time zone DEFAULT now(),
+  is_active boolean NOT NULL,
+  CONSTRAINT topic_message_pkey PRIMARY KEY (id)
+);

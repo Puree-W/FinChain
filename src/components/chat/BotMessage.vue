@@ -1,5 +1,16 @@
 <template>
     <div class="bot-message-wrapper">
+        <div class="bot-avatar" :class="{ loading }">
+            <v-progress-circular
+                v-if="loading"
+                indeterminate
+                :size="40"
+                :width="2"
+                color="#646cff"
+                class="avatar-progress"
+            />
+            <v-icon class="avatar-icon" size="22">mdi-robot</v-icon>
+        </div>
         <div v-if="thinkContent" class="bot-think">
             <p class="bot-think-text">{{ thinkContent }}</p>
         </div>
@@ -23,7 +34,11 @@ const props = defineProps({
     type: String,
     required: false,
     default: "2025-01-01 10:00 AM"
-  }
+  },
+  loading: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 const thinkContent = computed(() => {
@@ -47,6 +62,35 @@ const renderedMessage = computed(() => {
     align-items: flex-start;
     padding: 4px 0;
     gap: 4px;
+}
+
+.bot-avatar {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background-color: #2a2a2a;
+    color: #ffffff;
+    margin-bottom: 4px;
+    transition: box-shadow 0.3s ease;
+}
+
+.bot-avatar.loading {
+    background-color: #1a1a1a;
+}
+
+.avatar-progress {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+}
+
+.avatar-icon {
+    color: #ffffff;
+    z-index: 1;
 }
 
 .bot-think {

@@ -1,6 +1,6 @@
 <template>
     <div class="layout">
-        <Navbar :historyList="historyList" @new-chat="loadHistory([], null)" />
+        <Navbar :historyList="historyList" :loadingHistory="historyLoading" @new-chat="loadHistory([], null)" @refresh-history="refreshHistory" />
         <div class="page">
             <div class="scroll-area" ref="scrollArea" @scroll="onScroll">
                 <div class="content-column">
@@ -18,16 +18,17 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import Chatbox from '../components/chat/Chatbox.vue'
 import HistoryConversation from '../components/chat/HistoryConversation.vue'
 import Navbar from '../components/Navbar.vue'
 import { getAllHistory } from '../api/call.js'
 import { useChat } from '../composables/useChat.js'
 
-const { loadHistory, isAtBottom, scrollAreaRef } = useChat()
+const { loadHistory, isAtBottom, scrollAreaRef, newTopicCreated } = useChat()
 const scrollArea = ref(null)
 const historyList = ref([])
+const historyLoading = ref(true)
 
 function onScroll() {
     const el = scrollArea.value
@@ -36,14 +37,22 @@ function onScroll() {
     isAtBottom.value = el.scrollTop + el.clientHeight >= el.scrollHeight - threshold
 }
 
+function refreshHistory() {
+    historyLoading.value = true
+    getAllHistory().then(response => {
+        historyList.value = response.data
+    }).catch(err => {
+        console.error("Failed to get history:", err)
+    }).finally(() => {
+        historyLoading.value = false
+    })
+}
+
+watch(newTopicCreated, refreshHistory)
+
 onMounted(() => {
     scrollAreaRef.value = scrollArea.value
-
-    getAllHistory().then(response => {
-        historyList.value = response.data;
-    }).catch(err => {
-        console.error("Failed to get history:", err);
-    });
+    refreshHistory()
 })
 </script>
 

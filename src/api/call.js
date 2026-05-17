@@ -1,7 +1,7 @@
 import axios from "axios";
 
 
-export async function apiPostStream(endpoint, body = {}, { params = {}, onChunk, signal } = {}) {
+export async function apiPostStream(endpoint, body = {}, { params = {}, onChunk, onResponse, signal } = {}) {
     const query = new URLSearchParams(params).toString();
     const url = query ? `${endpoint}?${query}` : endpoint;
 
@@ -15,6 +15,8 @@ export async function apiPostStream(endpoint, body = {}, { params = {}, onChunk,
     if (!response.ok) {
         throw new Error(`POST ${endpoint} error: ${response.status}`);
     }
+
+    if (onResponse) onResponse(response);
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
@@ -36,16 +38,20 @@ export async function getHistory(topicId) {
 export async function getAllHistory() {
     return await apiGet("/api/Chat/GetAllHistory");
 }
-export async function callThaiLLM(input, model, topicId, { onChunk, signal } = {}) {
+export async function callThaiLLM(messages, model, topicId, { onChunk, onTopic, signal } = {}) {
     await apiPostStream("/api/Chat/ChatPost", {
         stream: true,
-        messages: [{ role: 'user', content: input }],
+        messages,
         maxTokens: 2048,
         temperature: 0.3,
         topicId,
     }, {
         params: { model },
         onChunk,
+        onResponse(response) {
+            const id = response.headers.get('X-Topic-Id');
+            if (id && onTopic) onTopic(id);
+        },
         signal,
     });
 }
@@ -54,7 +60,7 @@ export async function renameTopicHistory(topicId, newName) {
     return await apiPut("/api/Chat/UpdateTopicName", { id: topicId, topicName: newName });
 }
 export async function DeleteTopicHistory(topicId) {
- return await apiDelete("/api/Chat/DeleteTopic", { topicId });
+    return await apiDelete("/api/Chat/DeleteTopic", {}, { topicId });
 }
 // ─── Base API Templates ───
 
@@ -90,10 +96,10 @@ export async function apiPut(endpoint, body = {}, params = {}) {
 
 export async function apiDelete(endpoint, body = {}, params = {}) {
     try {
-        const response = await axios.delete(endpoint, body, { params });
+        const response = await axios.delete(endpoint, { params, data: body });
         return response.data;
     } catch (err) {
-        console.error(`POST ${endpoint} failed:`, err);
+        console.error(`DELETE ${endpoint} failed:`, err);
         throw err;
     }
 }
