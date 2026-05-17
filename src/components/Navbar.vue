@@ -13,7 +13,7 @@
 
                 <div class="chat-history">
                     <p class="chat-history-label">History</p>
-
+                    <div class="chat-history-scroll">
                     <Transition name="fade" mode="out-in">
                         <div v-if="loadingHistory" key="loading" class="history-skeleton-list">
                             <div v-for="i in 5" :key="i" class="history-skeleton-item">
@@ -42,9 +42,24 @@
                             </div>
                         </TransitionGroup>
                     </Transition>
+                    </div>
                 </div>
             </div>
         </Transition>
+
+        <div class="navbar-footer">
+            <v-btn
+                variant="text"
+                :ripple="false"
+                class="navbar-footer-btn"
+                :class="{ active: isConfigActive }"
+                size="small"
+                @click="goConfiguration"
+            >
+                <v-icon size="22">mdi-cog-outline</v-icon>
+                <span v-if="isExpanded" class="navbar-text">Configuration</span>
+            </v-btn>
+        </div>
 
         <!-- Rename dialog -->
         <v-dialog max-width="500" v-model="renameBox" :persistent="renameLoading">
@@ -147,11 +162,24 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { getHistory, renameTopicHistory, DeleteTopicHistory } from '../api/call.js'
 import { useChat } from '../composables/useChat.js'
 
 const { loadHistory, topicId: activeTopicId } = useChat()
+const route = useRoute()
+const router = useRouter()
+
+const isConfigActive = computed(() => route.path.startsWith('/configuration'))
+
+function goConfiguration() {
+    if (isConfigActive.value) {
+        router.push('/')
+    } else {
+        router.push('/configuration')
+    }
+}
 
 const renameBox = ref(false)
 const deleteBox = ref(false)
@@ -312,13 +340,17 @@ const isExpanded = ref(false)
     display: none;
 }
 
-/* Expanded content aligned to same x as menu icon */
+/* Expanded content fills the space between the menu button and the footer.
+   New Chat stays pinned at the top; only the history list scrolls. */
 .expanded-content {
     display: flex;
     flex-direction: column;
     gap: 8px;
     width: 100%;
     margin-top: 8px;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
 }
 
 .navbar-btn {
@@ -332,6 +364,7 @@ const isExpanded = ref(false)
     padding: 0 8px !important;
     min-width: 0 !important;
     border-radius: 8px !important;
+    flex-shrink: 0;
 }
 
 .navbar-btn:hover {
@@ -357,13 +390,44 @@ const isExpanded = ref(false)
     width: 100%;
     padding: 0 8px;
     margin-top: 8px;
+    flex: 1 1 auto;
+    min-height: 0;
 }
 
 .chat-history-label {
-    font-size: 1ุ6px;
+    font-size: 16px;
     color: #bdbdbd;
     margin: 0;
     padding-bottom: 4px;
+    flex-shrink: 0;
+}
+
+/* Only this region scrolls — the History label and the New Chat button above stay put. */
+.chat-history-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    /* Slim, theme-aware scrollbar so the rail stays clean. */
+    scrollbar-width: thin;
+    scrollbar-color: #4a4a4a transparent;
+}
+
+.chat-history-scroll::-webkit-scrollbar {
+    width: 6px;
+}
+
+.chat-history-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.chat-history-scroll::-webkit-scrollbar-thumb {
+    background-color: #4a4a4a;
+    border-radius: 3px;
+}
+
+.chat-history-scroll::-webkit-scrollbar-thumb:hover {
+    background-color: #5a5a5a;
 }
 
 .chat-history-item {
@@ -426,6 +490,49 @@ const isExpanded = ref(false)
 }
 .history-item-menu-sublist :deep(.v-list-item__overlay) {
   display: none;
+}
+
+/* Footer with the Configuration gear icon — pinned to the bottom. margin-top:auto
+   keeps it down when the navbar is collapsed (no expanded-content). flex-shrink:0
+   keeps it from being squeezed by the scrolling history above. */
+.navbar-footer {
+    margin-top: auto;
+    width: 100%;
+    padding-top: 8px;
+    border-top: 1px solid #404040;
+    flex-shrink: 0;
+}
+
+.navbar-footer-btn {
+    color: #bdbdbd !important;
+    text-transform: none !important;
+    letter-spacing: normal !important;
+    outline: none !important;
+    box-shadow: none !important;
+    border-radius: 8px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    justify-content: flex-start !important;
+    padding: 0 8px !important;
+}
+
+.navbar-footer-btn:hover {
+    color: white !important;
+    background-color: #4a4a4a !important;
+}
+
+.navbar-footer-btn.active {
+    color: #ffffff !important;
+    background-color: rgba(100, 108, 255, 0.18) !important;
+}
+
+.navbar-footer-btn.active :deep(.v-icon) {
+    color: #646cff !important;
+}
+
+.navbar-footer-btn :deep(.v-btn__overlay),
+.navbar-footer-btn :deep(.v-btn__underlay) {
+    display: none;
 }
 
 /* Shared dialog skin (rename / delete / result) */

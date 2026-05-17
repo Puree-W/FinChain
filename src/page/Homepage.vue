@@ -25,7 +25,7 @@ import Navbar from '../components/Navbar.vue'
 import { getAllHistory } from '../api/call.js'
 import { useChat } from '../composables/useChat.js'
 
-const { loadHistory, isAtBottom, scrollAreaRef, newTopicCreated } = useChat()
+const { loadHistory, isAtBottom, scrollAreaRef, newTopicCreated, loadTemplates } = useChat()
 const scrollArea = ref(null)
 const historyList = ref([])
 const historyLoading = ref(true)
@@ -53,6 +53,7 @@ watch(newTopicCreated, refreshHistory)
 onMounted(() => {
     scrollAreaRef.value = scrollArea.value
     refreshHistory()
+    loadTemplates()
 })
 </script>
 

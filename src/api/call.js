@@ -38,15 +38,15 @@ export async function getHistory(topicId) {
 export async function getAllHistory() {
     return await apiGet("/api/Chat/GetAllHistory");
 }
-export async function callThaiLLM(messages, model, topicId, { onChunk, onTopic, signal } = {}) {
+// Phase 2: chat call resolves provider/params/stream-mode from the selected template
+// on the backend. templateId is optional — when omitted the backend uses the row
+// flagged `is_default`. The response is always SSE.
+export async function callChat(messages, templateId, topicId, { onChunk, onTopic, signal } = {}) {
     await apiPostStream("/api/Chat/ChatPost", {
-        stream: true,
         messages,
-        maxTokens: 2048,
-        temperature: 0.3,
+        templateId,
         topicId,
     }, {
-        params: { model },
         onChunk,
         onResponse(response) {
             const id = response.headers.get('X-Topic-Id');
@@ -62,6 +62,66 @@ export async function renameTopicHistory(topicId, newName) {
 export async function DeleteTopicHistory(topicId) {
     return await apiDelete("/api/Chat/DeleteTopic", {}, { topicId });
 }
+
+// ─── Configuration API ───
+
+// AI config (LLM endpoints)
+export async function getAiConfigs() {
+    return await apiGet("/api/Configuration/AiConfig");
+}
+export async function getAiConfig(id) {
+    return await apiGet(`/api/Configuration/AiConfig/${id}`);
+}
+export async function createAiConfig(payload) {
+    return await apiPost("/api/Configuration/AiConfig", payload);
+}
+export async function updateAiConfig(id, payload) {
+    return await apiPut(`/api/Configuration/AiConfig/${id}`, payload);
+}
+export async function deleteAiConfig(id) {
+    return await apiDelete(`/api/Configuration/AiConfig/${id}`);
+}
+
+// Embedding config
+export async function getEmbeddingConfigs() {
+    return await apiGet("/api/Configuration/EmbeddingConfig");
+}
+export async function getEmbeddingConfig(id) {
+    return await apiGet(`/api/Configuration/EmbeddingConfig/${id}`);
+}
+export async function createEmbeddingConfig(payload) {
+    return await apiPost("/api/Configuration/EmbeddingConfig", payload);
+}
+export async function updateEmbeddingConfig(id, payload) {
+    return await apiPut(`/api/Configuration/EmbeddingConfig/${id}`, payload);
+}
+export async function deleteEmbeddingConfig(id) {
+    return await apiDelete(`/api/Configuration/EmbeddingConfig/${id}`);
+}
+
+// Model templates
+export async function getModelTemplates() {
+    return await apiGet("/api/Configuration/ModelTemplate");
+}
+export async function getDefaultModelTemplate() {
+    return await apiGet("/api/Configuration/ModelTemplate/Default");
+}
+export async function getModelTemplate(id) {
+    return await apiGet(`/api/Configuration/ModelTemplate/${id}`);
+}
+export async function createModelTemplate(payload) {
+    return await apiPost("/api/Configuration/ModelTemplate", payload);
+}
+export async function updateModelTemplate(id, payload) {
+    return await apiPut(`/api/Configuration/ModelTemplate/${id}`, payload);
+}
+export async function setDefaultModelTemplate(id) {
+    return await apiPut(`/api/Configuration/ModelTemplate/${id}/Default`, {});
+}
+export async function deleteModelTemplate(id) {
+    return await apiDelete(`/api/Configuration/ModelTemplate/${id}`);
+}
+
 // ─── Base API Templates ───
 
 export async function apiGet(endpoint, params = {}) {

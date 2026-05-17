@@ -15,7 +15,7 @@ namespace FinChain.Controllers
             _chatProcessor = chatProcessor;
         }
         [HttpPost("ChatPost")]
-        public async Task ChatPost([FromBody] ThaiLLMRequestModel req, [FromQuery] string model, CancellationToken cancellationToken)
+        public async Task ChatPost([FromBody] ChatRequestModel req, CancellationToken cancellationToken)
         {
             try
             {
@@ -26,7 +26,7 @@ namespace FinChain.Controllers
                 Response.Headers["Access-Control-Expose-Headers"] = "X-Topic-Id";
                 Response.ContentType = "text/event-stream";
 
-                await foreach (var chunk in _chatProcessor.StreamChatMessageAsync(req, model, topicId, cancellationToken))
+                await foreach (var chunk in _chatProcessor.StreamChatMessageAsync(req, topicId, cancellationToken))
                 {
                     await Response.WriteAsync(chunk, cancellationToken);
                     await Response.Body.FlushAsync(cancellationToken);

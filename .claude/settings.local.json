@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(npm install:*)",
-      "Bash(dotnet build:*)"
+      "Bash(dotnet build:*)",
+      "PowerShell(New-Item *)",
+      "Bash(powershell *)"
     ]
   },
   "saveChat": true,

@@ -72,8 +72,8 @@ Currently developing **core LLM chat features**, which include:
 - [x] Conversation history persistence (topic & message logging)
 - [x] Retrieve all conversation history
 - [x] Rename topic
-- [ ] Delete topic
-- [ ] Multi-turn conversation context
+- [x] Delete topic
+- [x] Multi-turn conversation context
 
 ## Roadmap
 

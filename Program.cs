@@ -17,8 +17,12 @@ namespace FinChain
             builder.Configuration.AddEnvironmentVariables();
 
             builder.Services.AddScoped<IChatProcessor, ChatProcessor>();
+            builder.Services.AddScoped<IConfigurationProcessor, ConfigurationProcessor>();
             builder.Services.AddScoped<ILogMessageRepository, LogMessageRepository>();
             builder.Services.AddScoped<ITopicMessageRepository, TopicMessageRepository>();
+            builder.Services.AddScoped<IAiConfigRepository, AiConfigRepository>();
+            builder.Services.AddScoped<IEmbeddingConfigRepository, EmbeddingConfigRepository>();
+            builder.Services.AddScoped<IModelTemplateRepository, ModelTemplateRepository>();
             builder.Services.AddControllers();
             // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
             builder.Services.AddOpenApi();

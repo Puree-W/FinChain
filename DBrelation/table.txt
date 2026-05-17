@@ -4,6 +4,10 @@ CREATE TABLE public.ai_config (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   name character varying,
   endpoint character varying,
+  json_request character varying,
+  api_key character varying,
+  auth_header_name character varying DEFAULT 'api-key',
+  api_shape character varying DEFAULT 'chat_completions',
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone,
   active_flag boolean DEFAULT true,
@@ -14,6 +18,9 @@ CREATE TABLE public.embedding_config (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   name character varying,
   endpoint character varying,
+  json_request character varying,
+  api_key character varying,
+  auth_header_name character varying DEFAULT 'api-key',
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone,
   active_flag boolean DEFAULT true,
@@ -44,3 +51,30 @@ CREATE TABLE public.topic_message (
   is_active boolean NOT NULL,
   CONSTRAINT topic_message_pkey PRIMARY KEY (id)
 );
+
+CREATE TABLE public.model_template (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name character varying NOT NULL,
+  description text,
+  ai_config_id bigint NOT NULL,
+  temperature real DEFAULT 0.3,
+  max_tokens integer DEFAULT 2048,
+  top_p real DEFAULT 1.0,
+  frequency_penalty real DEFAULT 0,
+  presence_penalty real DEFAULT 0,
+  system_prompt text,
+  is_default boolean DEFAULT false,
+  active_flag boolean DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone,
+  CONSTRAINT model_template_pkey PRIMARY KEY (id),
+  CONSTRAINT model_template_ai_config_id_fkey FOREIGN KEY (ai_config_id) REFERENCES public.ai_config(id)
+);
+
+---Phase 2 migration (run on existing Supabase if ai_config / embedding_config already exist)---
+
+ALTER TABLE public.ai_config        ADD COLUMN IF NOT EXISTS api_key character varying;
+ALTER TABLE public.ai_config        ADD COLUMN IF NOT EXISTS auth_header_name character varying DEFAULT 'api-key';
+ALTER TABLE public.ai_config        ADD COLUMN IF NOT EXISTS api_shape character varying DEFAULT 'chat_completions';
+ALTER TABLE public.embedding_config ADD COLUMN IF NOT EXISTS api_key character varying;
+ALTER TABLE public.embedding_config ADD COLUMN IF NOT EXISTS auth_header_name character varying DEFAULT 'api-key';

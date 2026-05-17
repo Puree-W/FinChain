@@ -5,7 +5,7 @@
     </v-btn>
   </Transition>
   <div class="chatbox">
-  
+
     <div class="input-area">
       <textarea
         ref="textareaRef"
@@ -30,32 +30,45 @@
         <div class="model-selector">
           <v-btn variant="text" :ripple="false" class="tool-btn" size="small"
             @click="showModelMenu = !showModelMenu">
-            <span class="tool-label">{{ selectedModel.name }}</span>
+            <span class="tool-label">{{ buttonLabel }}</span>
             <v-icon size="18" class="ml-1">
               {{ showModelMenu ? 'mdi-chevron-up' : 'mdi-chevron-down' }}
             </v-icon>
           </v-btn>
           <Transition name="dropdown">
             <div v-if="showModelMenu" class="model-dropdown" v-click-outside="() => showModelMenu = false">
-              <div
-                v-for="model in models"
-                :key="model.id"
-                class="model-option"
-                :class="{ active: model.id === selectedModel.id }"
-                @click="selectModel(model)"
-              >
-                <div class="model-option-info">
-                  <span class="model-name">{{ model.name }}</span>
-                  <span class="model-desc">{{ model.description }}</span>
+              <template v-if="templates.length">
+                <div
+                  v-for="t in templates.filter(t => t.activeFlag)"
+                  :key="t.id"
+                  class="model-option"
+                  :class="{ active: t.id === selectedTemplate?.id }"
+                  @click="pickTemplate(t)"
+                >
+                  <div class="model-option-info">
+                    <span class="model-name">
+                      {{ t.name }}
+                      <span v-if="t.isDefault" class="default-pill">default</span>
+                    </span>
+                    <span class="model-desc">
+                      {{ t.aiConfigName || '—' }} · temp {{ Number(t.temperature).toFixed(2) }} · max {{ t.maxTokens }}
+                    </span>
+                  </div>
+                  <v-icon v-if="t.id === selectedTemplate?.id" size="18" color="#64B5F6">
+                    mdi-check-circle
+                  </v-icon>
                 </div>
-                <v-icon v-if="model.id === selectedModel.id" size="18" color="#64B5F6">
-                  mdi-check-circle
-                </v-icon>
+              </template>
+              <div v-else class="model-empty">
+                <p class="model-empty-text">No templates yet.</p>
+                <router-link to="/configuration/model" class="model-empty-link" @click="showModelMenu = false">
+                  Create one in Configuration →
+                </router-link>
               </div>
             </div>
           </Transition>
         </div>
-        <v-btn icon variant="text" :ripple="false" class="tool-btn" size="small" 
+        <v-btn icon variant="text" :ripple="false" class="tool-btn" size="small"
           @click="sendMessage" @keyup.enter="sendMessage">
           <v-icon size="20">mdi-send</v-icon>
         </v-btn>
@@ -65,24 +78,18 @@
 </template>
 
 <script setup>
-import { ref, nextTick } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import { useChat } from '../../composables/useChat.js'
 
-const { sendMessage: send, isAtBottom, scrollToBottom } = useChat()
+const { sendMessage: send, isAtBottom, scrollToBottom, templates, selectedTemplate, selectTemplate } = useChat()
 const message = ref('')
 const textareaRef = ref(null)
 const showModelMenu = ref(false)
 
-const models = ref([
-  { id: '1', name: 'OpenThaiGPT', description: 'By AIEAT', value: 'openthaigpt' },
-  { id: '2', name: 'Pathumma', description: 'Qwen3 8b base model By NECTEC', value: 'pathumma' },
-  { id: '3', name: 'Typhoons-s', description: 'By SCB10X', value: 'typhoon' },
-  { id: '4', name: 'THaLLE', description: 'By KBTG', value: 'kbtg' },
-])
-const selectedModel = ref(models.value[0])
+const buttonLabel = computed(() => selectedTemplate.value?.name ?? 'Select template')
 
-function selectModel(model) {
-  selectedModel.value = model
+function pickTemplate(t) {
+  selectTemplate(t)
   showModelMenu.value = false
 }
 
@@ -117,7 +124,7 @@ function autoResize() {
 function sendMessage(e) {
   e.preventDefault()
   if (!message.value.trim()) return
-  send(message.value, selectedModel.value.value)
+  send(message.value)
   message.value = ''
   nextTick(() => autoResize())
 }
@@ -190,7 +197,7 @@ function sendMessage(e) {
   display: flex;
   align-items: center;
   gap: 4px;
-  border: none; 
+  border: none;
   outline: none;
 }
 
@@ -249,7 +256,7 @@ function sendMessage(e) {
   margin-bottom: 8px;
   background-color: #2a2a2a;
   border-radius: 12px;
-  min-width: 240px;
+  min-width: 260px;
   padding: 8px 0;
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
   z-index: 10;
@@ -277,17 +284,57 @@ function sendMessage(e) {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
 }
 
 .model-name {
   color: #e0e0e0;
   font-size: 14px;
   font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.default-pill {
+  font-size: 10px;
+  background-color: rgba(100, 108, 255, 0.18);
+  color: #c2c6ff;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-weight: 500;
 }
 
 .model-desc {
   color: #9e9e9e;
   font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-empty {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.model-empty-text {
+  color: #bdbdbd;
+  font-size: 13px;
+  margin: 0;
+}
+
+.model-empty-link {
+  color: #c2c6ff;
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.model-empty-link:hover {
+  color: #ffffff;
 }
 
 /* Dropdown transition */

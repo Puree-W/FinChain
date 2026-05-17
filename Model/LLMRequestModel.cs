@@ -9,19 +9,15 @@ namespace FinChain.Model
         public bool IsActive { get; set; }
     }
 
-    public class ThaiLLMRequestModel
+    // Phase 2: the chat wire-format is just "what to send" — everything about
+    // *how* to send it (provider URL, auth, model, sampling params, system prompt)
+    // is resolved server-side from the template.
+    public class ChatRequestModel
     {
-        public bool Stream { get; set; }
-        public int MaxTokens { get; set; }
-        public float Temperature { get; set; }
         public required MessageJson[] Messages { get; set; }
-        public StreamOptions? StreamOptions { get; set; }
-        public string? topicId {get;set;}
-    }
-
-    public class StreamOptions
-    {
-        public bool IncludeUsage { get; set; }
+        // Optional: when omitted, the backend falls back to the row with is_default = true.
+        public string? TemplateId { get; set; }
+        public string? TopicId { get; set; }
     }
     public class HistoryLLMModel
     {

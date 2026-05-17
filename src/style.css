@@ -69,3 +69,51 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+/* Vuetify menus teleport to <body>, so scoped CSS in the Configuration panels can't
+   reach them. The `finchain-select-menu` class is passed via :menu-props on every
+   v-select in Configuration so we can style hover/active states with enough contrast
+   to remain legible on dark surfaces (Vuetify's default highlight is near-white,
+   which is invisible against white item text). */
+.finchain-select-menu .v-overlay__content {
+  background-color: #2a2a2a !important;
+  border: 1px solid #3a3a3a;
+  border-radius: 10px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.finchain-select-menu .v-list {
+  background-color: #2a2a2a !important;
+  padding: 4px;
+}
+
+.finchain-select-menu .v-list-item {
+  color: rgba(255, 255, 255, 0.87) !important;
+  border-radius: 8px;
+  margin: 2px 0;
+  min-height: 36px;
+}
+
+.finchain-select-menu .v-list-item .v-list-item-title {
+  font-size: 13px;
+}
+
+.finchain-select-menu .v-list-item:hover {
+  background-color: #4a4a4a !important;
+  color: #ffffff !important;
+}
+
+.finchain-select-menu .v-list-item--active {
+  background-color: rgba(100, 108, 255, 0.22) !important;
+  color: #ffffff !important;
+}
+
+.finchain-select-menu .v-list-item--active .v-list-item-title {
+  color: #ffffff !important;
+}
+
+/* Kill the white wash overlay Vuetify paints on hover/active — it's what was
+   causing the white-on-white invisible-text bug. */
+.finchain-select-menu .v-list-item__overlay {
+  display: none !important;
+}

@@ -1,5 +1,6 @@
 using Supabase.Postgrest;
 using Supabase.Postgrest.Models;
+using System.Linq.Expressions;
 
 namespace FinChain.Repository
 {
@@ -25,6 +26,27 @@ namespace FinChain.Repository
                 .Single();
             return response;
         }
+        public async Task<T?> WhereAsync(
+            Expression<Func<T, bool>> predicate)
+        {
+            var response = await _supabase
+                .From<T>()
+                .Where(predicate)
+                .Single();
+
+            return response;
+        }
+
+        public async Task<T?> GetByIdAsync(long id)
+        {
+            var response = await _supabase
+                .From<T>()
+                .Filter("id", Constants.Operator.Equals, id.ToString())
+                .Single();
+
+            return response;
+        }
+
         public async Task<T> InsertAsync(T entity)
         {
             var response = await _supabase.From<T>().Insert(entity);

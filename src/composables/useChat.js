@@ -1,5 +1,5 @@
 import { ref, reactive } from 'vue'
-import { callThaiLLM } from '../api/call.js'
+import { callChat, getModelTemplates } from '../api/call.js'
 
 const messages = ref([])
 const isLoading = ref(false)
@@ -11,8 +11,13 @@ const topicId = ref(null)
 // watches this to refresh the navbar history list.
 const newTopicCreated = ref(0)
 
+// Phase 2 — templates are now the user-managed equivalent of a "model".
+const templates = ref([])
+const selectedTemplate = ref(null)
+const templatesLoading = ref(false)
+
 export function useChat() {
-  async function sendMessage(text, model = "openthaigpt") {
+  async function sendMessage(text) {
     if (!text.trim() || isLoading.value) return
 
     // 1) Add user message
@@ -39,7 +44,8 @@ export function useChat() {
     isLoading.value = true
     isStreamDone.value = false
     try {
-      await callThaiLLM(conversation, model, topicId.value, {
+      const templateId = selectedTemplate.value?.id ?? null
+      await callChat(conversation, templateId, topicId.value, {
         onTopic(id) {
           if (!topicId.value) {
             topicId.value = id
@@ -75,6 +81,35 @@ export function useChat() {
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
   }
 
+  async function loadTemplates() {
+    templatesLoading.value = true
+    try {
+      const response = await getModelTemplates()
+      const list = response?.data ?? []
+      templates.value = list
+      // Preserve the user's prior selection if it still exists; otherwise fall back
+      // to the row marked default; otherwise the first template.
+      const stillExists = selectedTemplate.value
+        ? list.find(t => t.id === selectedTemplate.value.id)
+        : null
+      if (stillExists) {
+        selectedTemplate.value = stillExists
+      } else {
+        selectedTemplate.value = list.find(t => t.isDefault) ?? list[0] ?? null
+      }
+    } catch (err) {
+      console.error('Failed to load model templates:', err)
+      templates.value = []
+      selectedTemplate.value = null
+    } finally {
+      templatesLoading.value = false
+    }
+  }
+
+  function selectTemplate(template) {
+    selectedTemplate.value = template
+  }
+
   return {
     messages,
     isLoading,
@@ -83,8 +118,13 @@ export function useChat() {
     scrollAreaRef,
     topicId,
     newTopicCreated,
+    templates,
+    selectedTemplate,
+    templatesLoading,
     sendMessage,
     loadHistory,
     scrollToBottom,
+    loadTemplates,
+    selectTemplate,
   }
 }
