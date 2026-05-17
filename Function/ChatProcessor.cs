@@ -10,11 +10,12 @@ namespace FinChain.Function
 {
     public interface IChatProcessor
     {
-        IAsyncEnumerable<string> StreamChatMessageAsync(ThaiLLMRequestModel req, string model, [EnumeratorCancellation] CancellationToken cancellationToken = default);
+        Task<string> EnsureTopicAsync(ThaiLLMRequestModel req);
+        IAsyncEnumerable<string> StreamChatMessageAsync(ThaiLLMRequestModel req, string model, string topicId, [EnumeratorCancellation] CancellationToken cancellationToken = default);
         Task<HistoryLLMModel> GetHistoryMessage(string topicId);
         Task<TopicMessage[]> GetAllHistoryMessage();
         Task<string> TopicLogMessageSave(string message);
-        Task LogMessageSave(string content, string role ,string topicId, int order, int promptToken = 0, int completionToken = 0, int totalToken = 0); 
+        Task LogMessageSave(string content, string role ,string topicId, int order, int promptToken = 0, int completionToken = 0, int totalToken = 0);
         Task<bool> UpdateTopicName(string topicId, string name);
         Task<bool> DeleteTopic(string topicId);
     }
@@ -33,25 +34,35 @@ namespace FinChain.Function
             _topicMessageRepository = topicMessageRepository;
         }
 
-        public async IAsyncEnumerable<string> StreamChatMessageAsync(ThaiLLMRequestModel req, string model, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        public async Task<string> EnsureTopicAsync(ThaiLLMRequestModel req)
         {
-            string topicId;
-
-            if (String.IsNullOrEmpty(req.topicId))
+            if (!string.IsNullOrEmpty(req.topicId))
             {
-                topicId = await TopicLogMessageSave(req.Messages[0].Content);
-            }
-            else
-            {
-                topicId = req.topicId;
+                return req.topicId;
             }
 
+            // First user message becomes the new topic name placeholder.
+            var firstUserMessage = req.Messages.FirstOrDefault(m => m.Role == "user")?.Content
+                ?? req.Messages.First().Content;
+            return await TopicLogMessageSave(firstUserMessage);
+        }
+
+        public async IAsyncEnumerable<string> StreamChatMessageAsync(ThaiLLMRequestModel req, string model, string topicId, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
             string baseUrl = $"http://thaillm.or.th/api/{model}/v1/chat/completions";
 
             using HttpClient client = new HttpClient();
             client.DefaultRequestHeaders.Add("apikey", _apiKey);
 
-            var snakeCaseOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
+            // OpenAI-style streaming omits the usage block by default; opt in so the LLM
+            // emits a final `usage` chunk just before [DONE] with prompt/completion totals.
+            req.StreamOptions = new StreamOptions { IncludeUsage = true };
+
+            var snakeCaseOptions = new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+                DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+            };
             string jsonBody = JsonSerializer.Serialize(req, snakeCaseOptions);
             var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
 
@@ -96,11 +107,16 @@ namespace FinChain.Function
                         }
                     }
 
-                    if (root.TryGetProperty("usage", out var usage))
+                    // The usage chunk arrives once, just before [DONE], with `choices: []`
+                    // and a populated `usage` object (see response_llm.txt for the shape).
+                    if (root.TryGetProperty("usage", out var usage) && usage.ValueKind == JsonValueKind.Object)
                     {
-                        promptTokens = usage.TryGetProperty("prompt_tokens", out var pt) ? pt.GetInt32() : 0;
-                        completionTokens = usage.TryGetProperty("completion_tokens", out var ct) ? ct.GetInt32() : 0;
-                        totalTokens = usage.TryGetProperty("total_tokens", out var tt) ? tt.GetInt32() : 0;
+                        if (usage.TryGetProperty("prompt_tokens", out var pt) && pt.ValueKind == JsonValueKind.Number)
+                            promptTokens = pt.GetInt32();
+                        if (usage.TryGetProperty("completion_tokens", out var ct) && ct.ValueKind == JsonValueKind.Number)
+                            completionTokens = ct.GetInt32();
+                        if (usage.TryGetProperty("total_tokens", out var tt) && tt.ValueKind == JsonValueKind.Number)
+                            totalTokens = tt.GetInt32();
                     }
                 }
             }
@@ -119,21 +135,21 @@ namespace FinChain.Function
                 );
             }
         }
-        public Task<TopicMessage[]> GetAllHistoryMessage()
+        public async Task<TopicMessage[]> GetAllHistoryMessage()
         {
-            return _topicMessageRepository.GetAllAsync().ContinueWith(t =>
-            {
-                return t.Result
-                    .OrderByDescending(tm => tm.created_at)
-                    .Select(tm => new TopicMessage
-                    {
-                        Id = tm.id,
-                        TopicName = tm.topic_name,
-                        CreatedAt = tm.created_at,
-                        UpdatedAt = tm.updated_at,
-                    })
-                    .ToArray();
-            });
+            var topics = await _topicMessageRepository.GetAllAsync();
+            return topics
+                .Where(tm => tm.is_active)
+                .OrderByDescending(tm => tm.created_at)
+                .ThenByDescending(tm => tm.updated_at)
+                .Select(tm => new TopicMessage
+                {
+                    Id = tm.id,
+                    TopicName = tm.topic_name,
+                    CreatedAt = tm.created_at,
+                    UpdatedAt = tm.updated_at,
+                })
+                .ToArray();
         }
 
         public async Task<HistoryLLMModel> GetHistoryMessage(string topicId)
@@ -211,16 +227,19 @@ namespace FinChain.Function
             try
             {
                 topic_message topic = await _topicMessageRepository.GetByIdAsync(topicId);
+                if (topic == null) return false;
+
                 topic.is_active = false;
-                await _logMessageRepository.GetAllAsync().ContinueWith(t =>
+                topic.updated_at = DateTime.UtcNow;
+                await _topicMessageRepository.UpdateAsync(topic);
+
+                var logs = await _logMessageRepository.GetByTopicIdAsync(topicId);
+                foreach (var log in logs)
                 {
-                    var logsToDelete = t.Result.Where(l => l.topic_id == topicId).ToList();
-                    foreach (var log in logsToDelete)
-                    {
-                        log.is_active = false;
-                        _logMessageRepository.UpdateAsync(log);
-                    }
-                });
+                    log.is_active = false;
+                    log.updated_at = DateTime.UtcNow;
+                    await _logMessageRepository.UpdateAsync(log);
+                }
                 return true;
             }
             catch (Exception ex)

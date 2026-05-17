@@ -15,7 +15,13 @@ namespace FinChain.Model
         public int MaxTokens { get; set; }
         public float Temperature { get; set; }
         public required MessageJson[] Messages { get; set; }
+        public StreamOptions? StreamOptions { get; set; }
         public string? topicId {get;set;}
+    }
+
+    public class StreamOptions
+    {
+        public bool IncludeUsage { get; set; }
     }
     public class HistoryLLMModel
     {

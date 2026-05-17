@@ -68,7 +68,7 @@
 import { ref, nextTick } from 'vue'
 import { useChat } from '../../composables/useChat.js'
 
-const { sendMessage: send, topicId, isAtBottom, scrollToBottom } = useChat()
+const { sendMessage: send, isAtBottom, scrollToBottom } = useChat()
 const message = ref('')
 const textareaRef = ref(null)
 const showModelMenu = ref(false)
@@ -117,7 +117,7 @@ function autoResize() {
 function sendMessage(e) {
   e.preventDefault()
   if (!message.value.trim()) return
-  send(message.value, selectedModel.value.value, topicId.value)
+  send(message.value, selectedModel.value.value)
   message.value = ''
   nextTick(() => autoResize())
 }

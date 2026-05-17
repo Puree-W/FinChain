@@ -10,7 +10,7 @@
             <v-list-item style="padding: 0;" class="message-item"
                 v-for="(msg, index) in messages" :key="index">
                 <userMessage v-if="msg.role === 'U' || msg.role === 'user'" :message="msg.content" />
-                <botMessage v-else :message="msg.content"/>
+                <botMessage v-else :message="msg.content" :loading="isLoading && index === messages.length - 1" />
             </v-list-item>
         </div>
         <div ref="bottomAnchor"></div>
